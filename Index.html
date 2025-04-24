@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lopez Duarte Roberto-TaToBa-Bara Bara Bere Bere</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+    }
+
+    #marcador, #temporizador {
+      position: absolute;
+      font-size: 20px;
+      color: #fff;
+      z-index: 10;
+    }
+
+    #marcador {
+      top: 10px;
+      right: 20px;
+    }
+
+    #temporizador {
+      top: 10px;
+      left: 20px;
+    }
+
+    #vidas {
+      position: absolute;
+      top: 45px;
+      right: 20px;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+      border: 3px solid #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="marcador">Cell Medals: 0</div>
+  <div id="temporizador">Tiempo: 10:00</div>
+  <div id="vidas"></div>
+
+  <script>
+    let pelota;
+    let barra;
+    let rectangulos = [];
+    let cellMedals = 0;
+    let tiempoRestante = 600;
+    let juegoTerminado = false;
+    let mensajeFinal = "";
+    let vidas = 3;
+    let enPausa = false;
+    let nivel = 1;
+    let Niveles = 3;
+
+    function setup() {
+      createCanvas(600, 400);
+      pelota = new Pelota();
+      barra = new Barra();
+      crearRectangulos();
+      setInterval(actualizarTiempo, 1000);
+    }
+
+    function draw() {
+      if (enPausa) {
+        mostrarPausa();
+        return;
+      }
+
+      background(30);
+
+      if (juegoTerminado) {
+        mostrarMensajeFinal();
+        return;
+      }
+
+      pelota.actualizar();
+      pelota.verificarBordes();
+      pelota.rebotarBarra(barra);
+      pelota.rebotarRectangulos(rectangulos);
+      pelota.mostrar();
+
+      barra.actualizar();
+      barra.mostrar();
+
+      mostrarRectangulos();
+      actualizarMarcador();
+      mostrarVidas();
+
+      if (rectangulos.length === 0 && !juegoTerminado) {
+        if (nivel < Niveles) {
+          nivel++;
+          crearRectangulos();
+          pelota.pos = createVector(width / 2, height / 2);
+          pelota.vel = createVector(3 + nivel, -(3 + nivel));
+        } else {
+          juegoTerminado = true;
+          mensajeFinal = "¡Ganaste!";
+        }
+      }
+    }
+
+    function actualizarTiempo() {
+      if (!juegoTerminado && !enPausa) {
+        tiempoRestante--;
+        let minutos = floor(tiempoRestante / 60);
+        let segundos = tiempoRestante % 60;
+        document.getElementById("temporizador").innerText =
+          "Tiempo: " + nf(minutos, 1) + ":" + nf(segundos, 2);
+        if (tiempoRestante <= 0 && rectangulos.length > 0) {
+          juegoTerminado = true;
+          mensajeFinal = "¡Perdiste!";
+        }
+      }
+    }
+
+    function mostrarMensajeFinal() {
+      fill(255);
+      textAlign(CENTER, CENTER);
+      textSize(36);
+      text(mensajeFinal, width / 2, height / 2);
+    }
+
+    function mostrarPausa() {
+      fill(255);
+      textAlign(CENTER, CENTER);
+      textSize(36);
+      text("PAUSA", width / 2, height / 2);
+    }
+
+    function keyPressed() {
+      if (keyCode === LEFT_ARROW) {
+        barra.mover(-1);
+      } else if (keyCode === RIGHT_ARROW) {
+        barra.mover(1);
+      }
+      if (key === ' ') {
+        enPausa = !enPausa;
+      }
+    }
+
+    function keyReleased() {
+      if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) {
+        barra.mover(0);
+      }
+    }
+
+    function crearRectangulos() {
+      RectangulosNivel(nivel);
+    }
+
+    function RectangulosNivel(nivel) {
+      rectangulos = [];
+      let anchoRect = 60;
+      let altoRect = 20;
+
+      if (nivel === 1) {
+        let filas = 4;
+        let columnas = 10;
+        anchoRect = width / columnas;
+        for (let i = 0; i < filas; i++) {
+          for (let j = 0; j < columnas; j++) {
+            rectangulos.push(new Rectangulo(j * anchoRect, i * altoRect, anchoRect, altoRect));
+          }
+        }
+      } else if (nivel === 2) {
+        pelota.vel = createVector(4, -4);
+        let filas = 5;
+        let columnas = 10;
+        anchoRect = width / columnas;
+        let bloqueEspecialColocado = false;
+        for (let i = 0; i < filas; i++) {
+          for (let j = 0; j < columnas; j++) {
+            let x = j * anchoRect;
+            let y = i * altoRect;
+            if (!bloqueEspecialColocado && i === 2 && j === 5) {
+              rectangulos.push(new Rectangulo(x, y, anchoRect, altoRect, 'gris', false, 3));
+              bloqueEspecialColocado = true;
+            } else {
+              rectangulos.push(new Rectangulo(x, y, anchoRect, altoRect));
+            }
+          }
+        }
+      } else if (nivel === 3) {
+        pelota.vel = createVector(5, -5);
+        let radio = 120;
+        let cx = width / 2;
+        let cy = height / 2;
+        let cantidad = 24;
+        let especialesAgregados = 0;
+        for (let i = 0; i < cantidad; i++) {
+          let angulo = TWO_PI * i / cantidad;
+          let x = cx + cos(angulo) * radio - anchoRect / 2;
+          let y = cy + sin(angulo) * radio - altoRect / 2;
+          if (especialesAgregados < 2) {
+            rectangulos.push(new Rectangulo(x, y, anchoRect, altoRect, 'gris', false, 3));
+            especialesAgregados++;
+          } else if (i === 12) {
+            rectangulos.push(new Rectangulo(x, y, anchoRect, altoRect, 'gris', false, Infinity, true));
+          } else {
+            rectangulos.push(new Rectangulo(x, y, anchoRect, altoRect));
+          }
+        }
+      }
+    }
+
+    function mostrarRectangulos() {
+      for (let i = rectangulos.length - 1; i >= 0; i--) {
+        rectangulos[i].mostrar();
+        if (rectangulos[i].destruido) {
+          rectangulos.splice(i, 1);
+        }
+      }
+    }
+
+    function actualizarMarcador() {
+      document.getElementById("marcador").innerText = "Cell Medals: " + cellMedals;
+    }
+
+    function mostrarVidas() {
+      let coloresVida = ['red', '#d4af37', '#7CFC00'];
+      let vidasHTML = '';
+      for (let i = 0; i < vidas; i++) {
+        vidasHTML += `<svg width="30" height="30" style="margin-right: 5px;">
+                        <circle cx="15" cy="15" r="12" stroke="yellow" stroke-width="3" fill="${coloresVida[i]}" />
+                      </svg>`;
+      }
+      document.getElementById('vidas').innerHTML = vidasHTML;
+    }
+
+    class Pelota {
+      constructor() {
+        this.pos = createVector(width / 2, height / 2);
+        this.vel = createVector(3, -3);
+        this.radio = 10;
+      }
+
+      actualizar() {
+        this.pos.add(this.vel);
+      }
+
+      verificarBordes() {
+        if (this.pos.x < this.radio || this.pos.x > width - this.radio) {
+          this.vel.x *= -1;
+        }
+        if (this.pos.y < this.radio) {
+          this.vel.y *= -1;
+        }
+        if (this.pos.y > height + this.radio) {
+          vidas--;
+          if (vidas <= 0) {
+            juegoTerminado = true;
+            mensajeFinal = "¡Perdiste!";
+          } else {
+            this.pos = createVector(width / 2, height / 2);
+            this.vel = createVector(3 + nivel, -(3 + nivel));
+          }
+        }
+      }
+
+      rebotarBarra(b) {
+        if (
+          this.pos.y + this.radio > b.y &&
+          this.pos.x > b.x &&
+          this.pos.x < b.x + b.ancho
+        ) {
+          this.vel.y *= -1;
+          this.pos.y = b.y - this.radio;
+        }
+      }
+
+      rebotarRectangulos(rectangulos) {
+        for (let r of rectangulos) {
+          if (!r.destruido &&
+            this.pos.x > r.x &&
+            this.pos.x < r.x + r.ancho &&
+            this.pos.y - this.radio < r.y + r.alto &&
+            this.pos.y + this.radio > r.y) {
+            r.golpear();
+            this.vel.y *= -1;
+            break;
+          }
+        }
+      }
+
+      mostrar() {
+        stroke('yellow');
+        strokeWeight(3);
+        fill('purple');
+        ellipse(this.pos.x, this.pos.y, this.radio * 2);
+      }
+    }
+
+    class Barra {
+      constructor() {
+        this.ancho = 100;
+        this.alto = 15;
+        this.x = width / 2 - this.ancho / 2;
+        this.y = height - 30;
+        this.velocidad = 7;
+        this.direccion = 0;
+      }
+
+      mover(dir) {
+        this.direccion = dir;
+      }
+
+      actualizar() {
+        this.x += this.direccion * this.velocidad;
+        this.x = constrain(this.x, 0, width - this.ancho);
+      }
+
+      mostrar() {
+        fill(200);
+        stroke('black');
+        strokeWeight(2);
+        rect(this.x, this.y, this.ancho, this.alto);
+      }
+    }
+
+    class Rectangulo {
+      constructor(x, y, ancho, alto, tipo = null, esHijoAzul = false, maxGolpes = null, irrompible = false) {
+        this.x = x;
+        this.y = y;
+        this.ancho = ancho;
+        this.alto = alto;
+        this.destruido = false;
+        this.golpes = 0;
+        this.esHijoAzul = esHijoAzul;
+        this.irrompible = irrompible;
+        const tipos = ['gris', 'verde', 'azul'];
+        this.tipo = tipo || random(tipos);
+        if (this.tipo === 'gris') {
+          this.color = color(150);
+          this.maxGolpes = maxGolpes || 2;
+        } else if (this.tipo === 'verde') {
+          this.color = color(0, 100, 0);
+          this.maxGolpes = maxGolpes || 2;
+        } else if (this.tipo === 'azul') {
+          this.color = color(0, 0, 150);
+          this.maxGolpes = maxGolpes || 1;
+        }
+        if (this.irrompible) {
+          this.color = color(100);
+        }
+      }
+
+      mostrar() {
+        if (!this.destruido) {
+          fill(this.color);
+          stroke('black');
+          strokeWeight(2);
+          rect(this.x, this.y, this.ancho, this.alto);
+        }
+      }
+
+      golpear() {
+        if (this.irrompible) return;
+        this.golpes++;
+        if (this.tipo === 'verde' && this.golpes === 1) {
+          this.teletransportar();
+        } else if (this.golpes >= this.maxGolpes) {
+          this.destruir();
+        }
+      }
+
+      teletransportar() {
+        this.x = random(width - this.ancho);
+        this.y = random(height / 2);
+      }
+
+      destruir() {
+        this.destruido = true;
+        if (this.tipo === 'azul' && !this.esHijoAzul) {
+          for (let i = 0; i < 3; i++) {
+            let nuevo = new Rectangulo(
+              random(width - 60),
+              random(height / 2),
+              60,
+              20,
+              'azul',
+              true
+            );
+            rectangulos.push(nuevo);
+          }
+        }
+        cellMedals += 100;
+      }
+    }
+  </script>
+</body>
+</html>
